@@ -7,12 +7,12 @@ export const getCurrentUser = async () => {
     const Cookie = headers().get("Cookie");
     const { data } = await api.get("/v1/auth/me", {
       headers: { Cookie },
+      timeout: 350,
     });
     return data as { id: number };
   } catch (err) {
     if (!(err instanceof AxiosError)) return null;
     if (err.response?.status === 401) return null;
-    console.log(err);
     return null;
   }
 };

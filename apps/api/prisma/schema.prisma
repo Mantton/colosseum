@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Auth
+model User {
+  id     Int    @id @default(autoincrement())
+  handle String @unique @db.VarChar(15)
+  email  String @unique
+
+  displayName   String?   @db.VarChar(50)
+  emailVerified DateTime? @default(now())
+  pfpUrl        String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  theatres           Theatre[]
+  moderationPosition TheatreModerator[]
+  UserBadge          UserBadge[]
+  Comment            Comment[]
+
+  @@map("users")
+}
+
+model Theatre {
+  id          Int      @id @default(autoincrement())
+  ownerId     Int
+  slug        String   @unique @db.VarChar(20)
+  name        String   @db.VarChar(120)
+  website     String
+  dateCreated DateTime @default(now())
+  preferences Json?
+
+  owner      User               @relation(fields: [ownerId], references: [id])
+  threads    Thread[]
+  moderators TheatreModerator[]
+  emojis     Emoji[]
+  Badge      Badge[]
+
+  @@map("theatres")
+}
+
+model Thread {
+  id          Int      @id @default(autoincrement())
+  theatreId   Int
+  slug        String   @db.VarChar(25)
+  name        String   @db.VarChar(50)
+  contentLink String   @db.VarChar(2083)
+  locked      Boolean  @default(false)
+  dateCreated DateTime @default(now())
+  dateUpdated DateTime @default(now())
+
+  theatre Theatre   @relation(fields: [theatreId], references: [id])
+  Comment Comment[]
+
+  @@unique([theatreId, slug])
+  @@map("threads")
+}
+
+model TheatreModerator {
+  user      User    @relation(fields: [userId], references: [id])
+  theatre   Theatre @relation(fields: [theatreId], references: [id])
+  userId    Int
+  theatreId Int
+
+  @@unique([userId, theatreId])
+  @@map("theatre_moderators")
+}
+
+// Emojis
+model Emoji {
+  id   Int    @id @default(autoincrement())
+  slug String @db.VarChar(15)
+  url  String
+
+  theatre   Theatre @relation(fields: [theatreId], references: [id])
+  theatreId Int
+
+  @@unique([theatreId, slug])
+  @@map("emojis")
+}
+
+// Badges
+model Badge {
+  id        Int      @id @default(autoincrement())
+  slug      String   @db.VarChar(15)
+  image     String
+  color     String   @db.VarChar(6)
+  title     String
+  theatreId Int
+  dateAdded DateTime @default(now())
+
+  theatre   Theatre     @relation(fields: [theatreId], references: [id])
+  UserBadge UserBadge[]
+
+  @@unique([slug, theatreId])
+  @@map("badges")
+}
+
+model UserBadge {
+  user       User     @relation(fields: [userId], references: [id])
+  badge      Badge    @relation(fields: [badgeId], references: [id])
+  dateEarned DateTime @default(now())
+  userId     Int
+  badgeId    Int
+
+  @@unique([userId, badgeId])
+}
+
+// Comments
+model Comment {
+  id       Int  @id @default(autoincrement())
+  userId   Int
+  threadId Int
+  parentId Int?
+
+  datePosted  DateTime  @default(now())
+  dateUpdated DateTime?
+
+  body String @db.VarChar(500)
+
+  flagged  Boolean // CLSM Content Moderation Flagging
+  reported Boolean // Community Reported Flagging
+  deleted  Boolean // Comment Deleted By User
+  approved Boolean // Comment Approved By Moderator
+
+  user    User      @relation(fields: [userId], references: [id])
+  thread  Thread    @relation(fields: [threadId], references: [id])
+  replies Comment[] @relation("replies")
+  parent  Comment?  @relation(fields: [parentId], references: [id], name: "replies")
+}
